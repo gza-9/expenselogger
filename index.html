@@ -674,8 +674,40 @@ function wireActions(el) {
   if (claimBtn) claimBtn.addEventListener('click', claimComplete);
 }
 
+function csvEscape(val) {
+  const s = String(val);
+  if (/[",\r\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+function buildCSV(trips) {
+  const sorted = [...trips].sort((a, b) => b.date.localeCompare(a.date));
+  const header = ['Date', 'Passengers', 'Passenger count', 'Trip rate', 'Passenger rate', 'Amount'];
+  const rows = sorted.map(t => [
+    t.date,
+    t.passengers.join(', '),
+    t.passengers.length,
+    t.tripRate.toFixed(2),
+    t.passengerRate.toFixed(2),
+    tripAmount(t).toFixed(2)
+  ]);
+  const total = round2(sorted.reduce((s, t) => s + tripAmount(t), 0));
+  rows.push(['', '', '', '', 'Total', total.toFixed(2)]);
+  return [header, ...rows].map(r => r.map(csvEscape).join(',')).join('\r\n') + '\r\n';
+}
+
 function exportCSV() {
-  // real body in Task 10
+  if (state.trips.length === 0) return;
+  const csv = buildCSV(state.trips);
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `mileage-${todayLocalISO()}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 0);
   setDirty(false);
   render();
 }
