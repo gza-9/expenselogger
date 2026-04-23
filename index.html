@@ -833,11 +833,21 @@ function saveSettingsFromSheet(dlg) {
   tripErr.textContent = '';
   passErr.textContent = '';
 
-  const trip = Number(tripInput.value);
-  const pass = Number(passInput.value);
+  const tripRaw = tripInput.value.trim();
+  const passRaw = passInput.value.trim();
+  const trip = Number(tripRaw);
+  const pass = Number(passRaw);
   let ok = true;
-  if (!Number.isFinite(trip) || trip < 0) { tripErr.textContent = 'Must be a positive number.'; ok = false; }
-  if (!Number.isFinite(pass) || pass < 0) { passErr.textContent = 'Must be a positive number.'; ok = false; }
+  function rateError(raw, n) {
+    if (raw === '') return 'Required.';
+    if (!Number.isFinite(n) || n < 0) return 'Must be a positive number.';
+    if (round2(n) !== n) return 'Max 2 decimal places.';
+    return '';
+  }
+  const te = rateError(tripRaw, trip);
+  const pe = rateError(passRaw, pass);
+  if (te) { tripErr.textContent = te; ok = false; }
+  if (pe) { passErr.textContent = pe; ok = false; }
   if (!ok) return;
 
   const regulars = Array.from(dlg.querySelectorAll('.regulars-list input'))
