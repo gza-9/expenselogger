@@ -712,10 +712,29 @@ function exportCSV() {
   render();
 }
 
-function shareTrips() {
-  // real body in Task 11
-  setDirty(false);
-  render();
+function buildShareText(trips) {
+  const sorted = [...trips].sort((a, b) => b.date.localeCompare(a.date));
+  const total = round2(sorted.reduce((s, t) => s + tripAmount(t), 0));
+  const today = todayLocalISO();
+  const header = `Mileage claim — ${today}\nTrips: ${sorted.length}\nTotal: £${total.toFixed(2)}\n`;
+  const body = sorted.map(t =>
+    `${dayLabel(t.date)} — ${t.passengers.join(', ')} — £${tripAmount(t).toFixed(2)}`
+  ).join('\n');
+  return `${header}\n${body}`;
+}
+
+async function shareTrips() {
+  if (state.trips.length === 0) return;
+  const text = buildShareText(state.trips);
+  const today = todayLocalISO();
+  try {
+    await navigator.share({ title: `Mileage claim — ${today}`, text });
+    setDirty(false);
+    render();
+  } catch (err) {
+    // User cancelled or share failed — leave dirty as it was.
+    if (err && err.name !== 'AbortError') console.error('Share failed:', err);
+  }
 }
 
 function claimComplete() {
