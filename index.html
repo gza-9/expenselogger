@@ -147,7 +147,136 @@
   </main>
   <dialog id="settings-sheet"></dialog>
   <script>
-    /* filled in Task 3 onward */
+'use strict';
+
+const K_SETTINGS = 'mileage.settings';
+const K_TRIPS = 'mileage.trips';
+const K_DIRTY = 'mileage.dirty';
+
+const DEFAULT_SETTINGS = {
+  tripRate: 27.45,
+  passengerRate: 5.48,
+  regulars: ['CE', 'DDR', 'HD']
+};
+
+const state = {
+  settings: null,     // object
+  trips: [],          // array
+  dirty: false,       // boolean
+  storageOk: true,
+  corrupt: false      // true if any key failed to parse
+};
+
+function storageAvailable() {
+  try {
+    const probe = '__mileage_probe__';
+    localStorage.setItem(probe, '1');
+    localStorage.removeItem(probe);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function loadJSON(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw === null) return { value: fallback, missing: true };
+    return { value: JSON.parse(raw), missing: false };
+  } catch (err) {
+    console.error(`Failed to parse ${key}:`, err);
+    state.corrupt = true;
+    return { value: fallback, missing: true };
+  }
+}
+
+function saveJSON(key, value) {
+  if (!state.storageOk) return;
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (err) {
+    console.error(`Failed to save ${key}:`, err);
+  }
+}
+
+function setDirty(v) {
+  state.dirty = !!v;
+  saveJSON(K_DIRTY, state.dirty);
+}
+
+function genId() {
+  return Math.random().toString(36).slice(2, 8);
+}
+
+function todayLocalISO() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function init() {
+  state.storageOk = storageAvailable();
+
+  if (!state.storageOk) {
+    state.settings = { ...DEFAULT_SETTINGS };
+    state.trips = [];
+    state.dirty = false;
+    render();
+    return;
+  }
+
+  const settingsRes = loadJSON(K_SETTINGS, { ...DEFAULT_SETTINGS });
+  if (settingsRes.missing && !state.corrupt) saveJSON(K_SETTINGS, settingsRes.value);
+  state.settings = settingsRes.value;
+
+  const tripsRes = loadJSON(K_TRIPS, []);
+  state.trips = Array.isArray(tripsRes.value) ? tripsRes.value : [];
+
+  const dirtyRes = loadJSON(K_DIRTY, false);
+  state.dirty = !!dirtyRes.value;
+
+  render();
+}
+
+function render() {
+  renderBanner();
+  renderLogForm();
+  renderMonths();
+  renderActions();
+}
+
+function renderBanner() {
+  const el = document.getElementById('banner');
+  if (!state.storageOk) {
+    el.hidden = false;
+    el.className = 'banner error';
+    el.textContent = "Storage unavailable — trips won't be saved. Turn off Private Browsing.";
+    return;
+  }
+  if (state.corrupt) {
+    el.hidden = false;
+    el.className = 'banner error';
+    el.textContent = 'Could not load some saved data — inspect localStorage in DevTools before continuing.';
+    return;
+  }
+  el.hidden = true;
+}
+
+function renderLogForm() {
+  /* filled in Task 5 */
+}
+
+function renderMonths() {
+  /* filled in Task 7 */
+}
+
+function renderActions() {
+  /* filled in Task 9 */
+}
+
+document.addEventListener('DOMContentLoaded', init);
   </script>
 </body>
 </html>
