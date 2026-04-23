@@ -492,6 +492,8 @@ function renderLogForm() {
 }
 
 function wireLogForm(el) {
+  if (el._wired) return;
+  el._wired = true;
   el.addEventListener('click', e => {
     const action = e.target.dataset.action;
     const regular = e.target.dataset.regular;
@@ -621,6 +623,8 @@ function renderMonths() {
 }
 
 function wireMonths(el) {
+  if (el._wired) return;
+  el._wired = true;
   el.addEventListener('click', e => {
     const monthBtn = e.target.closest('[data-month]');
     if (monthBtn) {
