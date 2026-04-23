@@ -237,6 +237,17 @@
       font-size: 18px;
     }
     .empty-state { text-align: center; padding: 32px 16px; color: var(--text-muted); }
+
+    .grand {
+      display: flex;
+      justify-content: space-between;
+      font-size: 18px;
+      font-weight: 600;
+      padding: 0 8px;
+    }
+    .export-row { display: flex; gap: 12px; }
+    .export-row button { flex: 1; }
+    .claim-hint { text-align: center; color: var(--text-muted); font-size: 13px; margin-top: -4px; }
   </style>
 </head>
 <body>
@@ -628,8 +639,60 @@ function wireMonths(el) {
   });
 }
 
+function grandTotal() {
+  return round2(state.trips.reduce((s, t) => s + tripAmount(t), 0));
+}
+
 function renderActions() {
-  /* filled in Task 9 */
+  const el = document.getElementById('actions');
+  if (state.trips.length === 0) {
+    el.innerHTML = '';
+    return;
+  }
+  const claimDisabled = state.dirty;
+  const hasShare = typeof navigator.share === 'function';
+  el.innerHTML = `
+    <div class="grand"><span>Grand total</span><span>£${grandTotal().toFixed(2)}</span></div>
+    <div class="export-row">
+      <button type="button" id="export-csv">Export CSV</button>
+      ${hasShare ? '<button type="button" id="share-trips">Share</button>' : ''}
+    </div>
+    <button type="button" class="danger" id="claim-complete" ${claimDisabled ? 'disabled' : ''}>
+      Claim complete — delete all
+    </button>
+    ${claimDisabled ? '<div class="claim-hint">Export or share first.</div>' : ''}
+  `;
+  wireActions(el);
+}
+
+function wireActions(el) {
+  const exportBtn = el.querySelector('#export-csv');
+  if (exportBtn) exportBtn.addEventListener('click', exportCSV);
+  const shareBtn = el.querySelector('#share-trips');
+  if (shareBtn) shareBtn.addEventListener('click', shareTrips);
+  const claimBtn = el.querySelector('#claim-complete');
+  if (claimBtn) claimBtn.addEventListener('click', claimComplete);
+}
+
+function exportCSV() {
+  // real body in Task 10
+  setDirty(false);
+  render();
+}
+
+function shareTrips() {
+  // real body in Task 11
+  setDirty(false);
+  render();
+}
+
+function claimComplete() {
+  if (state.dirty) return;
+  if (!confirm('Delete all trips? This cannot be undone.')) return;
+  state.trips = [];
+  saveJSON(K_TRIPS, state.trips);
+  setDirty(false);
+  render();
 }
 
 function openSettings() {
