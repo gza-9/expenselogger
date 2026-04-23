@@ -132,6 +132,26 @@
     .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
     .label { font-size: 13px; color: var(--text-muted); margin-bottom: 4px; display: block; }
     .muted { color: var(--text-muted); font-size: 14px; }
+
+    dialog#settings-sheet {
+      border: none;
+      border-radius: var(--radius);
+      padding: 0;
+      max-width: 480px;
+      width: 90vw;
+      color: var(--text);
+      background: var(--card);
+    }
+    dialog#settings-sheet::backdrop {
+      background: rgba(15, 23, 42, 0.4);
+    }
+    .sheet-inner { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+    .sheet-header { display: flex; justify-content: space-between; align-items: center; }
+    .sheet-header h2 { margin: 0; font-size: 18px; }
+    .regulars-list { display: flex; flex-direction: column; gap: 8px; }
+    .regulars-list .row input { flex: 1; }
+    .regulars-list button { min-width: auto; padding: 0 12px; }
+    .field-error { color: var(--danger); font-size: 13px; min-height: 1.2em; }
   </style>
 </head>
 <body>
@@ -238,6 +258,7 @@ function init() {
   state.dirty = !!dirtyRes.value;
 
   render();
+  document.getElementById('open-settings').addEventListener('click', openSettings);
 }
 
 function render() {
@@ -275,6 +296,116 @@ function renderMonths() {
 function renderActions() {
   /* filled in Task 9 */
 }
+
+function openSettings() {
+  const dlg = document.getElementById('settings-sheet');
+  dlg.innerHTML = settingsSheetHTML(state.settings);
+  wireSettingsSheet(dlg);
+  if (typeof dlg.showModal === 'function') dlg.showModal();
+  else dlg.setAttribute('open', '');
+}
+
+function closeSettings() {
+  const dlg = document.getElementById('settings-sheet');
+  if (typeof dlg.close === 'function') dlg.close();
+  else dlg.removeAttribute('open');
+}
+
+function settingsSheetHTML(s) {
+  const regulars = s.regulars.map((name, i) => `
+    <div class="row" data-regular-index="${i}">
+      <input type="text" value="${escapeAttr(name)}" aria-label="Regular ${i + 1}">
+      <button type="button" data-action="remove-regular">×</button>
+    </div>
+  `).join('');
+  return `
+    <form class="sheet-inner" id="settings-form">
+      <div class="sheet-header">
+        <h2>Settings</h2>
+        <button type="button" data-action="close">Close</button>
+      </div>
+      <div>
+        <label class="label" for="trip-rate">Trip rate (£)</label>
+        <input type="number" id="trip-rate" step="0.01" min="0" value="${s.tripRate}">
+        <div class="field-error" id="trip-rate-error"></div>
+      </div>
+      <div>
+        <label class="label" for="passenger-rate">Passenger rate (£)</label>
+        <input type="number" id="passenger-rate" step="0.01" min="0" value="${s.passengerRate}">
+        <div class="field-error" id="passenger-rate-error"></div>
+      </div>
+      <div>
+        <label class="label">Regulars</label>
+        <div class="regulars-list" id="regulars-list">${regulars}</div>
+        <button type="button" data-action="add-regular" style="margin-top: 8px;">+ Add regular</button>
+      </div>
+      <button type="submit" class="primary" id="save-settings">Save</button>
+    </form>
+  `;
+}
+
+function escapeAttr(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[c]);
+}
+
+function wireSettingsSheet(dlg) {
+  const form = dlg.querySelector('#settings-form');
+  form.addEventListener('click', e => {
+    const action = e.target.dataset.action;
+    if (action === 'close') { closeSettings(); return; }
+    if (action === 'remove-regular') {
+      e.target.closest('[data-regular-index]').remove();
+      return;
+    }
+    if (action === 'add-regular') {
+      const list = dlg.querySelector('#regulars-list');
+      const row = document.createElement('div');
+      row.className = 'row';
+      row.dataset.regularIndex = 'new';
+      row.innerHTML = '<input type="text" value="" aria-label="New regular"><button type="button" data-action="remove-regular">×</button>';
+      list.appendChild(row);
+      row.querySelector('input').focus();
+      return;
+    }
+  });
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    saveSettingsFromSheet(dlg);
+  });
+}
+
+function saveSettingsFromSheet(dlg) {
+  const tripInput = dlg.querySelector('#trip-rate');
+  const passInput = dlg.querySelector('#passenger-rate');
+  const tripErr = dlg.querySelector('#trip-rate-error');
+  const passErr = dlg.querySelector('#passenger-rate-error');
+  tripErr.textContent = '';
+  passErr.textContent = '';
+
+  const trip = Number(tripInput.value);
+  const pass = Number(passInput.value);
+  let ok = true;
+  if (!Number.isFinite(trip) || trip < 0) { tripErr.textContent = 'Must be a positive number.'; ok = false; }
+  if (!Number.isFinite(pass) || pass < 0) { passErr.textContent = 'Must be a positive number.'; ok = false; }
+  if (!ok) return;
+
+  const regulars = Array.from(dlg.querySelectorAll('.regulars-list input'))
+    .map(i => i.value.trim())
+    .filter(Boolean);
+
+  state.settings = {
+    tripRate: round2(trip),
+    passengerRate: round2(pass),
+    regulars
+  };
+  saveJSON(K_SETTINGS, state.settings);
+  closeSettings();
+  render();
+}
+
+function round2(n) { return Math.round(n * 100) / 100; }
 
 document.addEventListener('DOMContentLoaded', init);
   </script>
