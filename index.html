@@ -152,6 +152,46 @@
     .regulars-list .row input { flex: 1; }
     .regulars-list button { min-width: auto; padding: 0 12px; }
     .field-error { color: var(--danger); font-size: 13px; min-height: 1.2em; }
+
+    .form-grid { display: flex; flex-direction: column; gap: 16px; }
+    .date-row { display: flex; gap: 8px; }
+    .date-row input[type="date"] { flex: 1; }
+    .today-btn { min-width: 90px; }
+    .today-btn.pressed {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
+
+    .pill-row { display: flex; flex-wrap: wrap; gap: 8px; }
+    .pill {
+      padding: 10px 16px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--card);
+      min-height: var(--tap);
+      cursor: pointer;
+    }
+    .pill.on {
+      background: var(--accent-weak);
+      border-color: var(--accent);
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .adhoc-row { display: flex; gap: 8px; align-items: center; }
+    .adhoc-row input { flex: 1; }
+    .adhoc-row button { min-width: var(--tap); }
+
+    .total-line {
+      display: flex;
+      justify-content: space-between;
+      font-weight: 600;
+      font-size: 20px;
+      padding: 8px 0;
+      border-top: 1px solid var(--border);
+      padding-top: 12px;
+    }
   </style>
 </head>
 <body>
@@ -285,8 +325,128 @@ function renderBanner() {
   el.hidden = true;
 }
 
+const formState = {
+  date: todayLocalISO(),
+  regulars: new Set(),        // selected regular names
+  adhoc: []                    // array of strings (each ad-hoc passenger)
+};
+
+function passengerCount() {
+  return formState.regulars.size + formState.adhoc.length;
+}
+
+function formTotal() {
+  return round2(state.settings.tripRate + state.settings.passengerRate * passengerCount());
+}
+
+function canAddPassenger() {
+  return passengerCount() < 3;
+}
+
+function formSaveDisabled() {
+  if (!state.storageOk) return true;
+  if (formState.adhoc.some(n => n.trim() === '')) return true;
+  return false;
+}
+
 function renderLogForm() {
-  /* filled in Task 5 */
+  const el = document.getElementById('log-form');
+  const regulars = state.settings.regulars;
+  const isToday = formState.date === todayLocalISO();
+
+  const pills = regulars.map(name => `
+    <button type="button" class="pill ${formState.regulars.has(name) ? 'on' : ''}" data-regular="${escapeAttr(name)}">
+      ${escapeAttr(name)}
+    </button>
+  `).join('');
+
+  const adhocRows = formState.adhoc.map((val, i) => `
+    <div class="adhoc-row" data-adhoc-index="${i}">
+      <input type="text" value="${escapeAttr(val)}" placeholder="Name" aria-label="Ad-hoc passenger ${i + 1}">
+      <button type="button" data-action="remove-adhoc" aria-label="Remove passenger ${i + 1}">×</button>
+    </div>
+  `).join('');
+
+  el.innerHTML = `
+    <div class="form-grid">
+      <div>
+        <span class="label">Date</span>
+        <div class="date-row">
+          <button type="button" class="today-btn ${isToday ? 'pressed' : ''}" data-action="today">Today</button>
+          <input type="date" id="trip-date" value="${formState.date}">
+        </div>
+      </div>
+      <div>
+        <span class="label">Passengers (${passengerCount()}/3)</span>
+        <div class="pill-row">${pills}</div>
+        <div class="adhoc-list" style="margin-top: 8px; display: flex; flex-direction: column; gap: 8px;">
+          ${adhocRows}
+        </div>
+        <button type="button" data-action="add-adhoc" ${canAddPassenger() ? '' : 'disabled'} style="margin-top: 8px;">+ Add passenger</button>
+      </div>
+      <div class="total-line">
+        <span>Total</span>
+        <span>£${formTotal().toFixed(2)}</span>
+      </div>
+      <button type="button" class="primary" id="save-trip" ${formSaveDisabled() ? 'disabled' : ''}>Save trip</button>
+    </div>
+  `;
+
+  wireLogForm(el);
+}
+
+function wireLogForm(el) {
+  el.addEventListener('click', e => {
+    const action = e.target.dataset.action;
+    const regular = e.target.dataset.regular;
+    if (regular) {
+      if (formState.regulars.has(regular)) formState.regulars.delete(regular);
+      else if (canAddPassenger()) formState.regulars.add(regular);
+      renderLogForm();
+      return;
+    }
+    if (action === 'today') {
+      formState.date = todayLocalISO();
+      renderLogForm();
+      return;
+    }
+    if (action === 'add-adhoc' && canAddPassenger()) {
+      formState.adhoc.push('');
+      renderLogForm();
+      // Focus the new row
+      const rows = el.querySelectorAll('.adhoc-row input');
+      if (rows.length) rows[rows.length - 1].focus();
+      return;
+    }
+    if (action === 'remove-adhoc') {
+      const row = e.target.closest('[data-adhoc-index]');
+      const idx = Number(row.dataset.adhocIndex);
+      formState.adhoc.splice(idx, 1);
+      renderLogForm();
+      return;
+    }
+  });
+  el.addEventListener('input', e => {
+    if (e.target.id === 'trip-date') {
+      formState.date = e.target.value;
+      renderLogForm();
+      return;
+    }
+    const row = e.target.closest('[data-adhoc-index]');
+    if (row) {
+      const idx = Number(row.dataset.adhocIndex);
+      formState.adhoc[idx] = e.target.value;
+      // Re-render only if save-disabled state changes — cheap: just re-render.
+      renderLogForm();
+      // Restore focus to the edited input (it was re-created).
+      const newRow = el.querySelector(`[data-adhoc-index="${idx}"] input`);
+      if (newRow) {
+        newRow.focus();
+        const len = newRow.value.length;
+        newRow.setSelectionRange(len, len);
+      }
+    }
+  });
 }
 
 function renderMonths() {
