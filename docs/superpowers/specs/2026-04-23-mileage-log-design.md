@@ -130,8 +130,10 @@ Mobile-first, three zones stacked vertically. Chunky tap targets throughout
 └─────────────────────────────────────┘
 ```
 
-- **Today** button fills the date input with today's date and appears
-  visually "pressed" when the selected date matches today.
+- **Today** button fills the date input with today's **local** date (user's
+  device timezone, not UTC — derive from local `Date` components, never from
+  `toISOString()`). Appears visually "pressed" when the selected date matches
+  today.
 - Date input is native `<input type="date">` — Safari presents its wheel
   picker.
 - **Regulars** (`CE`, `DDR`, `HD`) render as pill-shaped toggles driven by
