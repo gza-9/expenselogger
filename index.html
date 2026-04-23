@@ -192,6 +192,51 @@
       border-top: 1px solid var(--border);
       padding-top: 12px;
     }
+
+    .month {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .month-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      cursor: pointer;
+      min-height: var(--tap);
+      background: var(--card);
+      border: none;
+      width: 100%;
+      font: inherit;
+      color: var(--text);
+      text-align: left;
+    }
+    .month-header .chev { color: var(--text-muted); margin-left: 8px; }
+    .month-header .total { font-weight: 600; }
+    .month-trips { display: flex; flex-direction: column; }
+    .trip-row {
+      display: grid;
+      grid-template-columns: 90px 1fr auto auto;
+      gap: 8px;
+      align-items: center;
+      padding: 10px 16px;
+      border-top: 1px solid var(--border);
+      min-height: var(--tap);
+    }
+    .trip-row .date { color: var(--text-muted); font-size: 14px; }
+    .trip-row .names { font-size: 14px; overflow: hidden; text-overflow: ellipsis; }
+    .trip-row .amount { font-weight: 600; }
+    .trip-row button {
+      min-width: 36px;
+      min-height: 36px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 18px;
+    }
+    .empty-state { text-align: center; padding: 32px 16px; color: var(--text-muted); }
   </style>
 </head>
 <body>
@@ -226,6 +271,13 @@ const state = {
   storageOk: true,
   corrupt: false      // true if any key failed to parse
 };
+
+const expandedMonths = new Set(); // e.g. "2026-04"
+
+function currentMonthKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
 
 function storageAvailable() {
   try {
@@ -478,8 +530,89 @@ function wireLogForm(el) {
   });
 }
 
+function tripAmount(trip) {
+  return round2(trip.tripRate + trip.passengerRate * trip.passengers.length);
+}
+
+function monthKey(dateStr) {
+  return dateStr.slice(0, 7); // "YYYY-MM"
+}
+
+function groupTripsByMonth(trips) {
+  const map = new Map();
+  for (const t of trips) {
+    const k = monthKey(t.date);
+    if (!map.has(k)) map.set(k, []);
+    map.get(k).push(t);
+  }
+  // Sort trips within month newest-first.
+  for (const arr of map.values()) {
+    arr.sort((a, b) => b.date.localeCompare(a.date));
+  }
+  // Return as [[key, trips]] sorted newest-month first.
+  return [...map.entries()].sort((a, b) => b[0].localeCompare(a[0]));
+}
+
+function monthLabel(key) {
+  const [y, m] = key.split('-').map(Number);
+  const d = new Date(y, m - 1, 1);
+  return d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+}
+
+function dayLabel(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  return dt.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
 function renderMonths() {
-  /* filled in Task 7 */
+  const el = document.getElementById('months');
+  if (state.trips.length === 0) {
+    el.innerHTML = `<div class="empty-state">No trips recorded yet.</div>`;
+    return;
+  }
+  // Ensure current month defaults to expanded on first render after load.
+  if (!renderMonths._initialised) {
+    expandedMonths.add(currentMonthKey());
+    renderMonths._initialised = true;
+  }
+  const grouped = groupTripsByMonth(state.trips);
+  el.innerHTML = grouped.map(([key, trips]) => {
+    const isOpen = expandedMonths.has(key);
+    const total = round2(trips.reduce((s, t) => s + tripAmount(t), 0));
+    const rows = isOpen ? trips.map(t => `
+      <div class="trip-row" data-trip-id="${escapeAttr(t.id)}">
+        <span class="date">${dayLabel(t.date)}</span>
+        <span class="names">${escapeAttr(t.passengers.join(', '))}</span>
+        <span class="amount">£${tripAmount(t).toFixed(2)}</span>
+        <button type="button" data-action="delete-trip" aria-label="Delete trip">×</button>
+      </div>
+    `).join('') : '';
+    return `
+      <div class="month">
+        <button type="button" class="month-header" data-month="${key}">
+          <span>${monthLabel(key)}</span>
+          <span><span class="total">£${total.toFixed(2)}</span><span class="chev"> ${isOpen ? '▾' : '▸'}</span></span>
+        </button>
+        <div class="month-trips">${rows}</div>
+      </div>
+    `;
+  }).join('');
+  wireMonths(el);
+}
+
+function wireMonths(el) {
+  el.addEventListener('click', e => {
+    const monthBtn = e.target.closest('[data-month]');
+    if (monthBtn) {
+      const key = monthBtn.dataset.month;
+      if (expandedMonths.has(key)) expandedMonths.delete(key);
+      else expandedMonths.add(key);
+      renderMonths();
+      return;
+    }
+    // delete-trip handled in Task 8
+  });
 }
 
 function renderActions() {
