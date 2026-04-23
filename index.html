@@ -349,6 +349,31 @@ function formSaveDisabled() {
   return false;
 }
 
+function saveTrip() {
+  if (formSaveDisabled()) return;
+  const passengers = [
+    ...state.settings.regulars.filter(n => formState.regulars.has(n)),
+    ...formState.adhoc.map(s => s.trim()).filter(Boolean)
+  ];
+  const trip = {
+    id: genId(),
+    date: formState.date,
+    passengers,
+    tripRate: state.settings.tripRate,
+    passengerRate: state.settings.passengerRate
+  };
+  state.trips.push(trip);
+  saveJSON(K_TRIPS, state.trips);
+  setDirty(true);
+
+  // Reset form
+  formState.date = todayLocalISO();
+  formState.regulars = new Set();
+  formState.adhoc = [];
+
+  render();
+}
+
 function renderLogForm() {
   const el = document.getElementById('log-form');
   const regulars = state.settings.regulars;
@@ -423,6 +448,10 @@ function wireLogForm(el) {
       const idx = Number(row.dataset.adhocIndex);
       formState.adhoc.splice(idx, 1);
       renderLogForm();
+      return;
+    }
+    if (e.target.id === 'save-trip') {
+      saveTrip();
       return;
     }
   });
