@@ -426,6 +426,14 @@ function saveTrip() {
   render();
 }
 
+function deleteTrip(id) {
+  if (!confirm('Delete this trip?')) return;
+  state.trips = state.trips.filter(t => t.id !== id);
+  saveJSON(K_TRIPS, state.trips);
+  setDirty(true);
+  render();
+}
+
 function renderLogForm() {
   const el = document.getElementById('log-form');
   const regulars = state.settings.regulars;
@@ -611,7 +619,12 @@ function wireMonths(el) {
       renderMonths();
       return;
     }
-    // delete-trip handled in Task 8
+    const deleteBtn = e.target.closest('[data-action="delete-trip"]');
+    if (deleteBtn) {
+      const row = deleteBtn.closest('[data-trip-id]');
+      deleteTrip(row.dataset.tripId);
+      return;
+    }
   });
 }
 
