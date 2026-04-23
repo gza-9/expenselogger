@@ -209,11 +209,11 @@ A cog icon in the top-right opens a modal/sheet:
 ### CSV (`mileage-YYYY-MM-DD.csv`)
 
 ```
-Date,Passengers,Passenger count,Trip rate,Passenger rate,Amount
-2026-04-23,"CE, DDR, JP",3,27.45,5.48,43.89
-2026-04-17,,0,27.45,5.48,27.45
-2026-03-28,"HD",1,27.45,5.48,32.93
-,,,,Total,104.27
+Date,Passengers,Passenger count,Trip rate,Passenger rate,Trip amount,Passenger amount,Amount
+2026-04-23,"CE, DDR, JP",3,27.45,5.48,27.45,16.44,43.89
+2026-04-17,,0,27.45,5.48,27.45,0.00,27.45
+2026-03-28,"HD",1,27.45,5.48,27.45,5.48,32.93
+,,,,Total,82.35,21.92,104.27
 ```
 
 - Rows sorted newest-first across all months (flat list).
@@ -221,7 +221,12 @@ Date,Passengers,Passenger count,Trip rate,Passenger rate,Amount
   preserve the embedded comma.
 - `Trip rate` and `Passenger rate` columns are per-row because they are
   frozen at entry time and may differ across rows after a rate change.
-- Final row is a grand total with leading empty cells.
+- `Trip amount` = `Trip rate` (base round-trip claim). `Passenger amount` =
+  `Passenger rate` × `Passenger count`. `Amount` = `Trip amount` +
+  `Passenger amount`. Kept as three separate columns so whoever processes
+  the claim can verify each component.
+- Final row is a total with leading empty cells; subtotals are shown for
+  `Trip amount`, `Passenger amount`, and `Amount`.
 - File encoded as UTF-8, `\r\n` line endings, downloaded via a Blob + object
   URL.
 
@@ -230,13 +235,19 @@ Date,Passengers,Passenger count,Trip rate,Passenger rate,Amount
 ```
 Mileage claim — 2026-04-23
 Trips: 7
+Trip total: £192.15
+Passenger total: £54.90
 Total: £247.05
 
-Tue 23 Apr — CE, DDR, JP — £43.89
+Tue 23 Apr — CE, DDR, JP — £27.45 + £16.44 = £43.89
 Wed 17 Apr — — £27.45
-Tue 28 Mar — HD — £32.93
+Tue 28 Mar — HD — £27.45 + £5.48 = £32.93
 ...
 ```
+
+Per-trip line shows `£<trip> + £<passenger> = £<total>` when there is at
+least one passenger; when there are none, just `£<total>` (the break-even
+`+ £0.00` would be noise).
 
 Passed as the `text` field of `navigator.share({ title, text })`. `title` is
 `Mileage claim — YYYY-MM-DD`.
